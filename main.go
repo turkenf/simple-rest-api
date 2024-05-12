@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	stdsort "sort"
@@ -22,23 +23,22 @@ type item struct {
 var items []item
 
 func main() {
-
 	http.HandleFunc("/items", itemsHandler)
 	http.HandleFunc("/items/", itemsHandlerByID)
 
-	err := http.ListenAndServe(":8090", nil)
-	if err != nil {
+	if err := http.ListenAndServe(":8090", nil); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func itemsHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
+	switch r.Method {
+	case "GET":
 		getItems(w, r)
-	} else if r.Method == "POST" {
+	case "POST":
 		addItem(w, r)
-	} else {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	default:
+		http.Error(w, fmt.Sprintf("Cannot do an HTTP %q request on the endpoint %s. Please review your request and retry.", r.Method, r.URL.Path), http.StatusMethodNotAllowed)
 	}
 }
 
@@ -69,11 +69,15 @@ func getItemsByID(w http.ResponseWriter, r *http.Request) {
 
 	// Check if an item exists with the specified ID
 	if !itemFound {
-		http.Error(w, "There is no item with the specified ID", http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("There is no item with the ID %q", id), http.StatusNotFound)
 		return
 	}
 
 	format, _, err := parseQuery(r.URL.RawQuery)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Cannot parse query: %s", err), http.StatusBadRequest)
+		return
+	}
 
 	if format == "yaml" {
 		err = yaml.NewEncoder(w).Encode(foundItem)
@@ -83,7 +87,6 @@ func getItemsByID(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
-
 }
 
 func deleteItemsByID(w http.ResponseWriter, r *http.Request) {
@@ -113,7 +116,6 @@ func deleteItemsByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func addItem(w http.ResponseWriter, r *http.Request) {
-
 	var newItem item
 	// Decode the JSON data from the request body into the newItem variable
 	err := json.NewDecoder(r.Body).Decode(&newItem)
@@ -135,13 +137,12 @@ func addItem(w http.ResponseWriter, r *http.Request) {
 		// Check if provided ID is duplicate
 		for _, existingItem := range items {
 			if newItem.ID == existingItem.ID {
-				http.Error(w, "ID already exists", http.StatusBadRequest)
+				http.Error(w, "ID already exists", http.StatusConflict)
 				return
 			}
 		}
 	}
 
-	// Set timestamp
 	newItem.Timestamp = time.Now()
 
 	// Add item to the in-memory data store
@@ -149,14 +150,12 @@ func addItem(w http.ResponseWriter, r *http.Request) {
 
 	// Respond with the newly added item
 	w.WriteHeader(http.StatusCreated)
-	err = json.NewEncoder(w).Encode(newItem)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+	if err := json.NewEncoder(w).Encode(newItem); err != nil {
+		log.Println("Error encoding JSON:", err)
 	}
 }
 
 func getItems(w http.ResponseWriter, r *http.Request) {
-
 	// Set header of the application response to json
 	w.Header().Set("Content-Type", "application/json")
 	// Check if there are items
@@ -166,14 +165,16 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 	}
 
 	format, sort, err := parseQuery(r.URL.RawQuery)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Cannot parse query: %s", err), http.StatusBadRequest)
+		return
+	}
 
-	// Sort by Timestamp
-	if sort == "timestamp" {
+	if sort == "timestamp" { // Sort by Timestamp
 		stdsort.Slice(items, func(i, j int) bool {
 			return items[i].Timestamp.Before(items[j].Timestamp)
 		})
-		// Sort by ID default
-	} else {
+	} else { // Sort by ID default
 		stdsort.Slice(items, func(i, j int) bool {
 			return items[i].ID > items[j].ID
 		})
@@ -216,9 +217,8 @@ func parseQuery(rawQuery string) (string, string, error) {
 			// If the key is "sort", set the sort variable to the corresponding value
 			sort = value
 		} else {
-			return "", "", errors.New("invalid query parameter key") // bunu nerede görüuoruz?
+			return "", "", errors.New("invalid query parameter key")
 		}
 	}
-
 	return format, sort, nil
 }

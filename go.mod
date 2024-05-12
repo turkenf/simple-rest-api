@@ -1,4 +1,4 @@
-module example/rest-api
+module github.com/turkenf/simple-rest-api
 
 go 1.21.0
 
