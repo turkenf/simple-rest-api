@@ -38,7 +38,7 @@ func itemsHandler(w http.ResponseWriter, r *http.Request) {
 	case "POST":
 		addItem(w, r)
 	default:
-		http.Error(w, fmt.Sprintf("Cannot do an HTTP %q request on the endpoint %s. Please review your request and retry.", r.Method, r.URL.Path), http.StatusMethodNotAllowed)
+		http.Error(w, fmt.Sprintf("cannot do an HTTP %q request on the endpoint %s. Please review your request and retry.", r.Method, r.URL.Path), http.StatusMethodNotAllowed)
 	}
 }
 
@@ -48,7 +48,7 @@ func itemsHandlerByID(w http.ResponseWriter, r *http.Request) {
 	} else if r.Method == "DELETE" {
 		deleteItemsByID(w, r)
 	} else {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
@@ -69,13 +69,13 @@ func getItemsByID(w http.ResponseWriter, r *http.Request) {
 
 	// Check if an item exists with the specified ID
 	if !itemFound {
-		http.Error(w, fmt.Sprintf("There is no item with the ID %q", id), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("there is no item with the ID %q", id), http.StatusNotFound)
 		return
 	}
 
 	format, _, err := parseQuery(r.URL.RawQuery)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Cannot parse query: %s", err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("cannot parse query: %s", err), http.StatusBadRequest)
 		return
 	}
 
@@ -104,7 +104,7 @@ func deleteItemsByID(w http.ResponseWriter, r *http.Request) {
 
 	// Check if an item exists with the specified ID
 	if index == -1 {
-		http.Error(w, "There is no item with the specified ID", http.StatusNotFound)
+		http.Error(w, "there is no item with the specified ID", http.StatusNotFound)
 		return
 	}
 
@@ -126,7 +126,7 @@ func addItem(w http.ResponseWriter, r *http.Request) {
 
 	// Check if name is provided
 	if newItem.Name == "" {
-		http.Error(w, "Name is required", http.StatusBadRequest)
+		http.Error(w, "name is required", http.StatusBadRequest)
 		return
 	}
 
@@ -137,7 +137,7 @@ func addItem(w http.ResponseWriter, r *http.Request) {
 		// Check if provided ID is duplicate
 		for _, existingItem := range items {
 			if newItem.ID == existingItem.ID {
-				http.Error(w, "ID already exists", http.StatusConflict)
+				http.Error(w, "specified ID already exists", http.StatusConflict)
 				return
 			}
 		}
@@ -151,7 +151,7 @@ func addItem(w http.ResponseWriter, r *http.Request) {
 	// Respond with the newly added item
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(newItem); err != nil {
-		log.Println("Error encoding JSON:", err)
+		log.Println("error encoding JSON:", err)
 	}
 }
 
@@ -166,7 +166,7 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 
 	format, sort, err := parseQuery(r.URL.RawQuery)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Cannot parse query: %s", err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("cannot parse query: %s", err), http.StatusBadRequest)
 		return
 	}
 
