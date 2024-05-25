@@ -57,18 +57,10 @@ func getItemsByID(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Path[len("/items/"):]
 
 	// Find item by ID
-	var foundItem item
-	itemFound := false
-	for _, item := range items {
-		if item.ID == id {
-			foundItem = item
-			itemFound = true
-			break
-		}
-	}
+	_, foundItem, found := searchID(items, id)
 
 	// Check if an item exists with the specified ID
-	if !itemFound {
+	if !found {
 		http.Error(w, fmt.Sprintf("there is no item with the ID %q", id), http.StatusNotFound)
 		return
 	}
@@ -94,16 +86,10 @@ func deleteItemsByID(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Path[len("/items/"):]
 
 	// Find the index of the item with the specified ID
-	index := -1
-	for i, item := range items {
-		if item.ID == id {
-			index = i
-			break
-		}
-	}
+	index, _, found := searchID(items, id)
 
 	// Check if an item exists with the specified ID
-	if index == -1 {
+	if !found {
 		http.Error(w, "there is no item with the specified ID", http.StatusNotFound)
 		return
 	}
@@ -135,11 +121,10 @@ func addItem(w http.ResponseWriter, r *http.Request) {
 		newItem.ID = uuid.NewString()
 	} else {
 		// Check if provided ID is duplicate
-		for _, existingItem := range items {
-			if newItem.ID == existingItem.ID {
-				http.Error(w, "specified ID already exists", http.StatusConflict)
-				return
-			}
+		_, _, found := searchID(items, newItem.ID)
+		if found {
+			http.Error(w, "specified ID already exists", http.StatusConflict)
+			return
 		}
 	}
 
@@ -221,4 +206,14 @@ func parseQuery(rawQuery string) (string, string, error) {
 		}
 	}
 	return format, sort, nil
+}
+
+// searchID finds an item by its ID in the items slice and returns its index, the item, and a boolean indicating if it was found
+func searchID(items []item, id string) (int, item, bool) {
+	for index, item := range items {
+		if item.ID == id {
+			return index, item, true
+		}
+	}
+	return -1, item{}, false
 }
