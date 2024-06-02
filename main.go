@@ -7,12 +7,21 @@ import (
 	"log"
 	"net/http"
 	stdsort "sort"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	yaml "gopkg.in/yaml.v3"
 )
+
+const (
+	parameterKeySort   = "sort"
+	parameterKeyFormat = "format"
+)
+
+type QueryParams struct {
+	Format string
+	Sort   string
+}
 
 type item struct {
 	ID        string    `json:"id"`
@@ -65,13 +74,13 @@ func getItemsByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	format, _, err := parseQuery(r.URL.RawQuery)
+	params, err := parseQuery(r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("cannot parse query: %s", err), http.StatusBadRequest)
 		return
 	}
 
-	if format == "yaml" {
+	if params.Format == "yaml" {
 		err = yaml.NewEncoder(w).Encode(foundItem)
 	} else {
 		err = json.NewEncoder(w).Encode(foundItem)
@@ -149,13 +158,13 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	format, sort, err := parseQuery(r.URL.RawQuery)
+	params, err := parseQuery(r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("cannot parse query: %s", err), http.StatusBadRequest)
 		return
 	}
 
-	if sort == "timestamp" { // Sort by Timestamp
+	if params.Sort == "timestamp" { // Sort by Timestamp
 		stdsort.Slice(items, func(i, j int) bool {
 			return items[i].Timestamp.Before(items[j].Timestamp)
 		})
@@ -165,7 +174,7 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	if format == "yaml" {
+	if params.Format == "yaml" {
 		// Convert the output to yaml format
 		err = yaml.NewEncoder(w).Encode(items)
 	} else {
@@ -177,35 +186,27 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func parseQuery(rawQuery string) (string, string, error) {
-	// Split the query string into individual parameters
-	params := strings.Split(rawQuery, "&")
+func parseQuery(r *http.Request) (QueryParams, error) {
+	// Get the query parameters from the URL
+	queryParams := r.URL.Query()
 
-	var format, sort string
+	// Extract the 'format' and 'sort' parameters
+	format := queryParams.Get(parameterKeyFormat)
+	sort := queryParams.Get(parameterKeySort)
 
-	for _, param := range params {
-		// Split the parameter into key-value pair
-		pair := strings.Split(param, "=")
-		if len(pair) != 2 {
-			return "", "", errors.New("invalid query parameter format")
-		}
-
-		// Extract the key and value from the parameter
-		key := pair[0]
-		value := pair[1]
-
-		// Check the key to determine the type of parameter
-		if key == "format" {
-			// If the key is "format", set the format variable to the corresponding value
-			format = value
-		} else if key == "sort" {
-			// If the key is "sort", set the sort variable to the corresponding value
-			sort = value
-		} else {
-			return "", "", errors.New("invalid query parameter key")
-		}
+	// Check the validity of the 'format' parameter
+	if format != "" && format != "json" && format != "yaml" {
+		return QueryParams{}, errors.New("invalid value for 'format' parameter")
 	}
-	return format, sort, nil
+	// Check the validity of the 'sort' parameter
+	if sort != "" && sort != "id" && sort != "timestamp" {
+		return QueryParams{}, errors.New("invalid value for 'sort' parameter")
+	}
+
+	return QueryParams{
+		Format: format,
+		Sort:   sort,
+	}, nil
 }
 
 // searchID finds an item by its ID in the items slice and returns its index, the item, and a boolean indicating if it was found
