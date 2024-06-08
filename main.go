@@ -43,9 +43,14 @@ func main() {
 func itemsHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
-		getItems(w, r)
+		if err := getItems(w, r); err != nil {
+			log.Printf("error getting items: %v", err)
+		}
 	case "POST":
-		addItem(w, r)
+		if err := addItem(w, r); err != nil {
+			log.Printf("error adding item: %v", err)
+		}
+
 	default:
 		http.Error(w, fmt.Sprintf("cannot do an HTTP %q request on the endpoint %s. Please review your request and retry.", r.Method, r.URL.Path), http.StatusMethodNotAllowed)
 	}
@@ -53,7 +58,9 @@ func itemsHandler(w http.ResponseWriter, r *http.Request) {
 
 func itemsHandlerByID(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
-		getItemsByID(w, r)
+		if err := getItemsByID(w, r); err != nil {
+			log.Printf("error getting item by ID: %v", err)
+		}
 	} else if r.Method == "DELETE" {
 		deleteItemsByID(w, r)
 	} else {
@@ -61,7 +68,7 @@ func itemsHandlerByID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getItemsByID(w http.ResponseWriter, r *http.Request) {
+func getItemsByID(w http.ResponseWriter, r *http.Request) error {
 	// Extract the ID from path
 	id := r.URL.Path[len("/items/"):]
 
@@ -71,13 +78,13 @@ func getItemsByID(w http.ResponseWriter, r *http.Request) {
 	// Check if an item exists with the specified ID
 	if !found {
 		http.Error(w, fmt.Sprintf("there is no item with the ID %q", id), http.StatusNotFound)
-		return
+		return nil
 	}
 
 	params, err := parseQuery(r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("cannot parse query: %s", err), http.StatusBadRequest)
-		return
+		return err
 	}
 
 	if params.Format == "yaml" {
@@ -87,7 +94,9 @@ func getItemsByID(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		return err
 	}
+	return nil
 }
 
 func deleteItemsByID(w http.ResponseWriter, r *http.Request) {
@@ -110,19 +119,19 @@ func deleteItemsByID(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func addItem(w http.ResponseWriter, r *http.Request) {
+func addItem(w http.ResponseWriter, r *http.Request) error {
 	var newItem item
 	// Decode the JSON data from the request body into the newItem variable
 	err := json.NewDecoder(r.Body).Decode(&newItem)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
 
 	// Check if name is provided
 	if newItem.Name == "" {
 		http.Error(w, "name is required", http.StatusBadRequest)
-		return
+		return nil
 	}
 
 	// Generate ID if not provided
@@ -133,7 +142,7 @@ func addItem(w http.ResponseWriter, r *http.Request) {
 		_, _, found := searchID(items, newItem.ID)
 		if found {
 			http.Error(w, "specified ID already exists", http.StatusConflict)
-			return
+			return nil
 		}
 	}
 
@@ -146,22 +155,24 @@ func addItem(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(newItem); err != nil {
 		log.Println("error encoding JSON:", err)
+		return err
 	}
+	return nil
 }
 
-func getItems(w http.ResponseWriter, r *http.Request) {
+func getItems(w http.ResponseWriter, r *http.Request) error {
 	// Set header of the application response to json
 	w.Header().Set("Content-Type", "application/json")
 	// Check if there are items
 	if len(items) == 0 {
 		w.WriteHeader(http.StatusNoContent)
-		return
+		return nil
 	}
 
 	params, err := parseQuery(r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("cannot parse query: %s", err), http.StatusBadRequest)
-		return
+		return err
 	}
 
 	if params.Sort == "timestamp" { // Sort by Timestamp
@@ -183,7 +194,9 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		return err
 	}
+	return nil
 }
 
 func parseQuery(r *http.Request) (QueryParams, error) {
