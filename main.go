@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -32,10 +33,17 @@ type item struct {
 var items []item
 
 func main() {
+	// Parse command-line arguments
+	var port int
+	flag.IntVar(&port, "port", 8090, "port number for HTTP server")
+	flag.Parse()
+
 	http.HandleFunc("/items", itemsHandler)
 	http.HandleFunc("/items/", itemsHandlerByID)
 
-	if err := http.ListenAndServe(":8090", nil); err != nil {
+	addr := fmt.Sprintf(":%d", port)
+	log.Printf("Starting server on port %d...\n", port)
+	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatal(err)
 	}
 }
