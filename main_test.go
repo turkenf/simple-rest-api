@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/http"
 	"reflect"
 	"testing"
 	"time"
@@ -112,6 +113,77 @@ func Test_searchID(t *testing.T) {
 			}
 			if gotFound != tt.want.found {
 				t.Errorf("searchID() gotFound = %v, want %v", gotFound, tt.want.found)
+			}
+		})
+	}
+}
+
+func Test_parseQuery(t *testing.T) {
+	tests := []struct {
+		name    string
+		url     string
+		want    QueryParams
+		wantErr bool
+	}{
+		{
+			name: "Valid JSON format and ID sort",
+			url:  "/path?format=json&sort=id",
+			want: QueryParams{
+				Format: "json",
+				Sort:   "id",
+			},
+			wantErr: false,
+		},
+		{
+			name: "Valid YAML format and timestamp sort",
+			url:  "/path?format=yaml&sort=timestamp",
+			want: QueryParams{
+				Format: "yaml",
+				Sort:   "timestamp",
+			},
+			wantErr: false,
+		},
+		{
+			name: "Empty query parameters",
+			url:  "/path",
+			want: QueryParams{
+				Format: "",
+				Sort:   "",
+			},
+			wantErr: false,
+		},
+		{
+			name:    "Invalid format parameter",
+			url:     "/path?format=invalid&sort=id",
+			want:    QueryParams{},
+			wantErr: true,
+		},
+		{
+			name:    "Invalid sort parameter",
+			url:     "/path?format=json&sort=invalid",
+			want:    QueryParams{},
+			wantErr: true,
+		},
+		{
+			name:    "Both parameters invalid",
+			url:     "/path?format=invalid&sort=invalid",
+			want:    QueryParams{},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, err := http.NewRequest("GET", tt.url, nil)
+			if err != nil {
+				t.Fatalf("could not create request: %v", err)
+			}
+			got, err := parseQuery(req)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseQuery() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parseQuery() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
