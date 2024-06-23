@@ -65,21 +65,28 @@ func itemsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func itemsHandlerByID(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		if err := getItemsByID(w, r); err != nil {
+	// Extract the ID from path
+	id := r.URL.Path[len("/items/"):]
+
+	// If id is empty, call itemsHandler to list all items
+	if id == "" {
+		itemsHandler(w, r)
+		return
+	}
+
+	switch r.Method {
+	case "GET":
+		if err := getItemsByID(w, r, id); err != nil {
 			log.Printf("error getting item by ID: %v", err)
 		}
-	} else if r.Method == "DELETE" {
-		deleteItemsByID(w, r)
-	} else {
+	case "DELETE":
+		deleteItemsByID(w, r, id)
+	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-func getItemsByID(w http.ResponseWriter, r *http.Request) error {
-	// Extract the ID from path
-	id := r.URL.Path[len("/items/"):]
-
+func getItemsByID(w http.ResponseWriter, r *http.Request, id string) error {
 	// Find item by ID
 	_, foundItem, found := searchID(items, id)
 
@@ -107,10 +114,7 @@ func getItemsByID(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func deleteItemsByID(w http.ResponseWriter, r *http.Request) {
-	// Extract the ID from path
-	id := r.URL.Path[len("/items/"):]
-
+func deleteItemsByID(w http.ResponseWriter, r *http.Request, id string) {
 	// Find the index of the item with the specified ID
 	index, _, found := searchID(items, id)
 
